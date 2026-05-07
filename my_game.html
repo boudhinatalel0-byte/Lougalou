@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOU GAROU ELITE - النسخة الملكية</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gold: #d4af37;
+            --blood: #8b0000;
+            --night: #0a0e1a;
+            --card-bg: #161a24;
+            --text: #e0e0e0;
+        }
+
+        * { box-sizing: border-box; font-family: 'Cairo', sans-serif; }
+        
+        body {
+            background: var(--night);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        #game-wrapper {
+            width: 95%;
+            max-width: 1100px;
+            background: rgba(22, 26, 36, 0.95);
+            border: 2px solid var(--gold);
+            border-radius: 20px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+
+        /* شاشات اللعبة */
+        .screen { display: none; padding: 20px; flex-direction: column; align-items: center; height: 100%; }
+        .active { display: flex; animation: fadeIn 0.8s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+        /* منطقة اللاعبين */
+        .players-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            width: 100%;
+            padding: 10px;
+        }
+
+        .player-card {
+            background: var(--card-bg);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            transition: 0.3s;
+        }
+
+        .player-card.is-user { border: 2px solid var(--gold); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+        .player-card.dead { filter: grayscale(1); opacity: 0.5; border-color: var(--blood); }
+        .player-card.dead::after { content: "☠️"; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; }
+
+        .avatar { font-size: 2.5rem; display: block; margin-bottom: 5px; }
+        .role-badge { font-size: 0.7rem; background: #333; padding: 2px 8px; border-radius: 10px; color: var(--gold); }
+
+        /* منطقة الحوار والرسائل */
+        .game-main { display: flex; flex: 1; width: 100%; gap: 20px; overflow: hidden; padding: 10px; }
+        
+        .chat-container {
+            flex: 1;
+            background: #000;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #222;
+        }
+
+        .chat-messages { flex: 1; overflow-y: auto; padding: 15px; }
+        .msg { margin-bottom: 10px; line-height: 1.4; border-bottom: 1px solid #111; padding-bottom: 5px; }
+        .msg b { color: var(--gold); margin-left: 5px; }
+
+        .controls {
+            width: 300px;
+            background: #1c212e;
+            border-radius: 15px;
+            padding: 15px;
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* أزرار احترافية */
+        button {
+            background: linear-gradient(to bottom, #d4af37, #aa8a2e);
+            border: none;
+            padding: 12px;
+            color: #000;
+            font-weight: 900;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:hover { transform: translateY(-2px); filter: brightness(1.2); }
+        button:disabled { background: #444; color: #888; cursor: not-allowed; }
+
+        h1 { font-weight: 900; letter-spacing: 2px; color: var(--gold); margin: 0 0 10px 0; }
+        .phase-tag { padding: 5px 20px; border-radius: 20px; font-weight: bold; margin-bottom: 10px; }
+        .night-tag { background: #1e1e44; color: #aab; }
+        .day-tag { background: #554411; color: var(--gold); }
+    </style>
+</head>
+<body>
+
+<div id="game-wrapper">
+    <div id="screen-start" class="screen active">
+        <h1 style="font-size: 3.5rem;">LOU GAROU</h1>
+        <p style="font-size: 1.2rem; color: #888;">لعبة الذكاء، الخديعة، والبقاء</p>
+        <div style="margin: 40px 0;">
+            <div class="player-card" style="width: 200px;">
+                <span class="avatar">🐺</span>
+                <p>10 شخصيات أسطورية</p>
+            </div>
+        </div>
+        <button onclick="setupGame()" style="padding: 20px 50px; font-size: 1.5rem;">دخول الساحة</button>
+    </div>
+
+    <div id="screen-reveal" class="screen">
+        <h2>هويتك السرية لهذه اللعبة</h2>
+        <div id="identity-card" class="player-card" style="width: 300px; padding: 40px; border-width: 3px;">
+            <span id="user-icon" class="avatar" style="font-size: 5rem;"></span>
+            <h2 id="user-role-name" style="margin: 10px 0;"></h2>
+            <p id="user-role-desc" style="color: #aaa; font-size: 0.9rem;"></p>
+        </div>
+        <button onclick="startGame()">ابدأ الليلة الأولى</button>
+    </div>
+
+    <div id="screen-main" class="screen">
+        <div id="phase-indicator" class="phase-tag"></div>
+        
+        <div class="players-grid" id="players-grid"></div>
+
+        <div class="game-main">
+            <div class="chat-container">
+                <div class="chat-messages" id="chat-box"></div>
+            </div>
+            
+            <div class="controls" id="action-panel">
+                <h3 style="margin: 0; color: var(--gold);">لوحة التحكم</h3>
+                <div id="action-buttons" style="display: flex; flex-direction: column; gap: 8px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const ROLES_CONFIG = [
+        { id: 1, name: "المستذئب الأول", icon: "🐺", team: "wolf", desc: "اقتل القرويين خفية.", power: "قتل" },
+        { id: 2, name: "المستذئب الثاني", icon: "🐺", team: "wolf", desc: "شريك في الجريمة.", power: "قتل" },
+        { id: 3, name: "الملك", icon: "👑", team: "village", desc: "صوتك في النهار بوزن 2.", power: "تصويت مضاعف" },
+        { id: 4, name: "الملكة", icon: "👸", team: "village", desc: "اكشفي دور لاعب كل ليلة.", power: "كشف" },
+        { id: 5, name: "مواطن عادي 1", icon: "🧔", team: "village", desc: "راقب وبلغ عن المشبوهين.", power: "لا يوجد" },
+        { id: 6, name: "مواطن عادي 2", icon: "👩", team: "village", desc: "أنت أمل القرية.", power: "لا يوجد" },
+        { id: 7, name: "مواطن عادي 3", icon: "👨‍🌾", team: "village", desc: "احذر من جيرانك.", power: "لا يوجد" },
+        { id: 8, name: "الحية", icon: "🐍", team: "neutral", desc: "مصيرك مرتبط بشخص آخر.", power: "رابط الموت" },
+        { id: 9, name: "الفلاح", icon: "🔫", team: "village", desc: "عند موتك، تقتل من تختار.", power: "الطلقة الأخيرة" },
+        { id: 10, name: "المنقذ", icon: "🧪", team: "village", desc: "استبدل ميتاً بحي عند رحيلك.", power: "الاستبدال" }
+    ];
+
+    let gameState = {
+        players: [],
+        me: null,
+        phase: 'NIGHT',
+        linkedPartnerId: null,
+        dayNum: 1,
+        logs: []
+    };
+
+    function setupGame() {
+        let shuffled = [...ROLES_CONFIG].sort(() => Math.random() - 0.5);
+        gameState.players = shuffled.map((role, index) => ({
+            ...role,
+            currentId: index,
+            alive: true,
+            isUser: false
+        }));
+
+        const userPos = Math.floor(Math.random() * 10);
+        gameState.players[userPos].isUser = true;
+        gameState.me = gameState.players[userPos];
+
+        // منطق الحية: ربطها بشخص عشوائي
+        const snake = gameState.players.find(p => p.id === 8);
+        let partner;
+        do { partner = Math.floor(Math.random() * 10); } while (gameState.players[partner].id === 8);
+        gameState.linkedPartnerId = partner;
+
+        // تحديث واجهة الكشف
+        document.getElementById('user-icon').innerText = gameState.me.icon;
+        document.getElementById('user-role-name').innerText = gameState.me.name;
+        document.getElementById('user-role-desc').innerText = gameState.me.desc;
+        
+        switchScreen('screen-reveal');
+    }
+
+    function switchScreen(id) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+
+    function startGame() {
+        switchScreen('screen-main');
+        updateGrid();
+        addChat("نظام اللعبة", "بدأت الليلة الأولى.. القرية نائمة الآن.", "gray");
+        startNightPhase();
+    }
+
+    function updateGrid() {
+        const grid = document.getElementById('players-grid');
+        grid.innerHTML = '';
+        gameState.players.forEach(p => {
+            const card = document.createElement('div');
+            card.className = `player-card ${p.alive ? '' : 'dead'} ${p.isUser ? 'is-user' : ''}`;
+            card.innerHTML = `
+                <span class="avatar">${p.alive ? p.icon : '💀'}</span>
+                <b>${p.isUser ? 'أنت' : 'لاعب ' + (p.currentId + 1)}</b><br>
+                <span class="role-badge">${p.isUser || !p.alive ? p.name : '؟؟؟'}</span>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function addChat(name, msg, color = "white") {
+        const box = document.getElementById('chat-box');
+        const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        box.innerHTML += `<div class="msg" style="color:${color}"><span>[${time}]</span> <b>${name}:</b> ${msg}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function startNightPhase() {
+        gameState.phase = 'NIGHT';
+        const indicator = document.getElementById('phase-indicator');
+        indicator.innerText = "الليل 🌙 - يوم " + gameState.dayNum;
+        indicator.className = "phase-tag night-tag";
+        
+        const panel = document.getElementById('action-buttons');
+        panel.innerHTML = '';
+
+        if (!gameState.me.alive) {
+            addChat("عالم الأرواح", "أنت تراقب القرية بصمت...", "#666");
+            setTimeout(autoWolfAction, 3000);
+            return;
+        }
+
+        // تفريغ الأكشن بناءً على الدور
+        if (gameState.me.team === 'wolf') {
+            addChat("الذئاب", "تواصل مع شريكك واختر ضحية.", "red");
+            gameState.players.forEach(p => {
+                if (p.alive && p.team !== 'wolf') {
+                    const btn = document.createElement('button');
+                    btn.innerText = `افترس لاعب ${p.currentId + 1}`;
+                    btn.onclick = () => { killProcess(p.currentId, "افتراس"); startDayPhase(); };
+                    panel.appendChild(btn);
+                }
+            });
+        } else if (gameState.me.id === 4) { // الملكة
+            addChat("الملكة", "اختاري لاعباً لكشف هويته الحقيقية.", "gold");
+            gameState.players.forEach(p => {
+                if (p.alive && !p.isUser) {
+                    const btn = document.createElement('button');
+                    btn.innerText = `كشف لاعب ${p.currentId + 1}`;
+                    btn.onclick = () => { 
+                        alert(`هوية اللاعب ${p.currentId + 1} هي: ${p.name}`);
+                        autoWolfAction();
+                        startDayPhase();
+                    };
+                    panel.appendChild(btn);
+                }
+            });
+        } else {
+            addChat("تنبيه", "أنت نائم.. انتظر الصباح.", "#aaa");
+            const btn = document.createElement('button');
+            btn.innerText = "النوم حتى الفجر";
+            btn.onclick = () => { autoWolfAction(); startDayPhase(); };
+            panel.appendChild(btn);
+        }
+    }
+
+    function autoWolfAction() {
+        if (gameState.me.team !== 'wolf') {
+            const targets = gameState.players.filter(p => p.alive && p.team !== 'wolf');
+            const target = targets[Math.floor(Math.random() * targets.length)];
+            killProcess(target.currentId, "افتراس");
+        }
+    }
+
+    function startDayPhase() {
+        gameState.phase = 'DAY';
+        updateGrid();
+        const indicator = document.getElementById('phase-indicator');
+        indicator.innerText = "النهار ☀️ - يوم " + gameState.dayNum;
+        indicator.className = "phase-tag day-tag";
+
+        addChat("القرية", "استيقظت القرية.. حان وقت النقاش والتصويت.", "gold");
+        
+        // محاكاة حوار الذكاء الاصطناعي
+        const dialogs = [
+            "سمعت صوتاً مريباً الليلة الماضية!",
+            "أنا أشك في الجميع، لا أحد يخرج من منزله.",
+            "الملك يجب أن يقودنا للحل.",
+            "رأيت خيالاً يركض جهة لاعب " + (Math.floor(Math.random()*10)+1),
+            "أنا مجرد مواطن مسكين، لا تقتلوني."
+        ];
+
+        gameState.players.forEach(p => {
+            if (p.alive && !p.isUser) {
+                setTimeout(() => {
+                    addChat("لاعب " + (p.currentId+1), dialogs[Math.floor(Math.random()*dialogs.length)], "#888");
+                }, Math.random() * 3000);
+            }
+        });
+
+        const panel = document.getElementById('action-buttons');
+        panel.innerHTML = '<b>اختر متهماً للإعدام:</b>';
+
+        gameState.players.forEach(p => {
+            if (p.alive && !p.isUser) {
+                const btn = document.createElement('button');
+                btn.innerText = `اتهام لاعب ${p.currentId + 1}`;
+                btn.onclick = () => { 
+                    killProcess(p.currentId, "تصويت القرية");
+                    gameState.dayNum++;
+                    startNightPhase();
+                };
+                panel.appendChild(btn);
+            }
+        });
+    }
+
+    function killProcess(idx, reason) {
+        let p = gameState.players[idx];
+        if (!p.alive) return;
+        p.alive = false;
+        addChat("جنازة", `مات ${p.isUser ? 'أنت' : 'اللاعب ' + (idx + 1)} وكان دوره: ${p.name} بسبب ${reason}`, "orange");
+
+        // 1. قدرة الحية
+        if (p.id === 8 || idx === gameState.linkedPartnerId) {
+            let otherId = (p.id === 8) ? gameState.linkedPartnerId : gameState.players.find(pl => pl.id === 8).currentId;
+            if (gameState.players[otherId].alive) {
+                addChat("قدرة الحية", "المصير المشترك! مات الطرف الآخر فوراً.", "purple");
+                killProcess(otherId, "ارتباط روحي");
+            }
+        }
+
+        // 2. قدرة الفلاح
+        if (p.id === 9) {
+            addChat("قدرة الفلاح", "الطلقة الأخيرة انطلقت!", "red");
+            let targets = gameState.players.filter(pl => pl.alive);
+            if (targets.length > 0) killProcess(targets[Math.floor(Math.random()*targets.length)].currentId, "رصاصة الفلاح");
+        }
+
+        // 3. قدرة المنقذ
+        if (p.id === 10) {
+            addChat("المنقذ", "تم استبدال روح بروح أخرى!", "cyan");
+            // محاكاة استبدال عشوائي
+        }
+
+        if (checkGameOver()) return;
+        updateGrid();
+    }
+
+    function checkGameOver() {
+        const wolves = gameState.players.filter(p => p.alive && p.team === 'wolf').length;
+        const totalAlive = gameState.players.filter(p => p.alive).length;
+
+        if (wolves === 0) {
+            alert("🎉 انتصار القرويين! تم تنظيف القرية من الذئاب.");
+            location.reload();
+            return true;
+        } else if (wolves >= (totalAlive / 2)) {
+            alert("🐺 انتصار المستذئبين! سقطت القرية في الظلام.");
+            location.reload();
+            return true;
+        }
+        return false;
+    }
+</script>
+</body>
+</html>
